@@ -4,7 +4,7 @@
 //! release announcements and contributor overviews. It is structured as a
 //! standard CLI command module, following the conventions used by other
 //! commands in this crate:
-//! 
+//!
 //! - **Argument parsing** is handled by [`ShortlogArgs`], which defines the
 //!   supported flags and options using `clap::Parser`. The key flags are:
 //!   - `numbered` (`-n` / `--numbered`): sort authors by descending commit
@@ -162,7 +162,14 @@ pub async fn execute_to(args: ShortlogArgs, writer: &mut impl Write) {
             )
             .unwrap();
         } else {
-            writeln!(writer, "{:>width$}  {}", stats.count, stats.name, width = width).unwrap();
+            writeln!(
+                writer,
+                "{:>width$}  {}",
+                stats.count,
+                stats.name,
+                width = width
+            )
+            .unwrap();
         }
         if !args.summary {
             for subject in &stats.subjects {
