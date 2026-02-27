@@ -48,6 +48,7 @@ async fn create_test_commit_tree() -> String {
         &format_commit_msg("Commit_1", None),
     );
     commit_1.author.timestamp = parse_date("2026-01-01").unwrap() as usize;
+    commit_1.committer.timestamp = commit_1.author.timestamp;
     save_object(&commit_1, &commit_1.id).unwrap();
 
     let mut commit_2 = Commit::new(
@@ -58,6 +59,7 @@ async fn create_test_commit_tree() -> String {
         &format_commit_msg("Commit_2", None),
     );
     commit_2.author.timestamp = parse_date("2026-01-02").unwrap() as usize;
+    commit_2.committer.timestamp = commit_2.author.timestamp;
     save_object(&commit_2, &commit_2.id).unwrap();
 
     let mut commit_3 = Commit::new(
@@ -68,6 +70,7 @@ async fn create_test_commit_tree() -> String {
         &format_commit_msg("Commit_3", None),
     );
     commit_3.author.timestamp = parse_date("2026-01-03").unwrap() as usize;
+    commit_3.committer.timestamp = commit_3.author.timestamp;
     save_object(&commit_3, &commit_3.id).unwrap();
 
     let mut commit_4 = Commit::new(
@@ -78,6 +81,7 @@ async fn create_test_commit_tree() -> String {
         &format_commit_msg("Commit_4", None),
     );
     commit_4.author.timestamp = parse_date("2026-01-04").unwrap() as usize;
+    commit_4.committer.timestamp = commit_4.author.timestamp;
     save_object(&commit_4, &commit_4.id).unwrap();
 
     let mut commit_5 = Commit::new(
@@ -88,6 +92,7 @@ async fn create_test_commit_tree() -> String {
         &format_commit_msg("Commit_5", None),
     );
     commit_5.author.timestamp = parse_date("2026-01-05").unwrap() as usize;
+    commit_5.committer.timestamp = commit_5.author.timestamp;
     save_object(&commit_5, &commit_5.id).unwrap();
 
     let mut commit_6 = Commit::new(
@@ -98,6 +103,7 @@ async fn create_test_commit_tree() -> String {
         &format_commit_msg("Commit_6", None),
     );
     commit_6.author.timestamp = parse_date("2026-01-06").unwrap() as usize;
+    commit_6.committer.timestamp = commit_6.author.timestamp;
     save_object(&commit_6, &commit_6.id).unwrap();
 
     let mut commit_7 = Commit::new(
@@ -108,6 +114,7 @@ async fn create_test_commit_tree() -> String {
         &format_commit_msg("Commit_7", None),
     );
     commit_7.author.timestamp = parse_date("2026-01-07").unwrap() as usize;
+    commit_7.committer.timestamp = commit_7.author.timestamp;
     save_object(&commit_7, &commit_7.id).unwrap();
 
     let mut commit_8 = Commit::new(
@@ -118,6 +125,7 @@ async fn create_test_commit_tree() -> String {
         &format_commit_msg("Commit_8", None),
     );
     commit_8.author.timestamp = parse_date("2026-01-08").unwrap() as usize;
+    commit_8.committer.timestamp = commit_8.author.timestamp;
     save_object(&commit_8, &commit_8.id).unwrap();
 
     let mut commit_9 = Commit::new(
@@ -128,6 +136,7 @@ async fn create_test_commit_tree() -> String {
         &format_commit_msg("Commit_9", None),
     );
     commit_9.author.timestamp = parse_date("2026-01-09").unwrap() as usize;
+    commit_9.committer.timestamp = commit_9.author.timestamp;
     save_object(&commit_9, &commit_9.id).unwrap();
 
     let mut commit_10 = Commit::new(
@@ -138,6 +147,7 @@ async fn create_test_commit_tree() -> String {
         &format_commit_msg("Commit_10", None),
     );
     commit_10.author.timestamp = parse_date("2026-01-10").unwrap() as usize;
+    commit_10.committer.timestamp = commit_10.author.timestamp;
     save_object(&commit_10, &commit_10.id).unwrap();
 
     let mut commit_11 = Commit::new(
@@ -148,6 +158,7 @@ async fn create_test_commit_tree() -> String {
         &format_commit_msg("Commit_11", None),
     );
     commit_11.author.timestamp = parse_date("2026-01-11").unwrap() as usize;
+    commit_11.committer.timestamp = commit_11.author.timestamp;
     save_object(&commit_11, &commit_11.id).unwrap();
 
     let mut commit_12 = Commit::new(
@@ -158,6 +169,7 @@ async fn create_test_commit_tree() -> String {
         &format_commit_msg("Commit_12", None),
     );
     commit_12.author.timestamp = parse_date("2026-01-12").unwrap() as usize;
+    commit_12.committer.timestamp = commit_12.author.timestamp;
     save_object(&commit_12, &commit_12.id).unwrap();
 
     let mut commit_13 = Commit::new(
@@ -168,6 +180,7 @@ async fn create_test_commit_tree() -> String {
         &format_commit_msg("Commit_13", None),
     );
     commit_13.author.timestamp = parse_date("2026-01-13").unwrap() as usize;
+    commit_13.committer.timestamp = commit_13.author.timestamp;
     save_object(&commit_13, &commit_13.id).unwrap();
 
     let mut commit_14 = Commit::new(
@@ -178,6 +191,7 @@ async fn create_test_commit_tree() -> String {
         &format_commit_msg("Commit_14", None),
     );
     commit_14.author.timestamp = parse_date("2026-01-14").unwrap() as usize;
+    commit_14.committer.timestamp = commit_14.author.timestamp;
     save_object(&commit_14, &commit_14.id).unwrap();
 
     // set current branch head to commit 14
@@ -470,4 +484,46 @@ async fn test_execute_shortlog() {
     let out_lines: Vec<_> = output.lines().collect();
     let exp_lines: Vec<_> = expected.lines().collect();
     assert_eq!(out_lines, exp_lines);
+}
+
+#[tokio::test]
+#[serial]
+async fn test_shortlog_committer_date_filter() {
+    let temp_path = tempdir().unwrap();
+    test::setup_with_new_libra_in(temp_path.path()).await;
+    let _guard = ChangeDirGuard::new(temp_path.path());
+
+    // Create a commit with different author and committer dates
+    let mut commit = Commit::new(
+        create_signature(SignatureType::Author, "TEST"),
+        create_signature(SignatureType::Committer, "TEST"),
+        ObjectHash::new(&[1; 20]),
+        vec![],
+        &format_commit_msg("Test Commit", None),
+    );
+    // Author date: 2026-01-01
+    commit.author.timestamp = parse_date("2026-01-01").unwrap() as usize;
+    // Committer date: 2026-02-01
+    commit.committer.timestamp = parse_date("2026-02-01").unwrap() as usize;
+    save_object(&commit, &commit.id).unwrap();
+
+    let head = Head::current().await;
+    let branch_name = match head {
+        Head::Branch(name) => name,
+        _ => panic!("should be branch"),
+    };
+    Branch::update_branch(&branch_name, &commit.id.to_string(), None).await;
+
+    // Filter since 2026-01-15
+    // Should exclude if using author date (Jan 1 < Jan 15)
+    // Should include if using committer date (Feb 1 > Jan 15)
+    let args = ShortlogArgs::try_parse_from(["libra", "--since", "2026-01-15"]).unwrap();
+    
+    let mut buf = Vec::new();
+    shortlog::execute_to(args, &mut buf).await;
+    let output = String::from_utf8(buf).unwrap();
+
+    // Expect the commit to be present
+    assert!(output.contains("TEST"));
+    assert!(output.contains("Test Commit"));
 }

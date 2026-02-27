@@ -218,7 +218,7 @@ fn passes_filter(commit: &Commit, args: &ShortlogArgs) -> bool {
     if let Some(since_str) = &args.since
         && let Ok(since_ts) = parse_date(since_str)
     {
-        let commit_ts = commit.author.timestamp as i64;
+        let commit_ts = commit.committer.timestamp as i64;
         if commit_ts < since_ts {
             return false;
         }
@@ -227,7 +227,7 @@ fn passes_filter(commit: &Commit, args: &ShortlogArgs) -> bool {
     if let Some(until_str) = &args.until
         && let Ok(until_ts) = parse_date(until_str)
     {
-        let commit_ts = commit.author.timestamp as i64;
+        let commit_ts = commit.committer.timestamp as i64;
         if commit_ts > until_ts {
             return false;
         }
