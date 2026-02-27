@@ -1,3 +1,12 @@
+//! Tests for the `git shortlog` command.
+//!
+//! This module contains integration tests for the `shortlog` command, verifying:
+//! - Basic author aggregation
+//! - Output sorting (`-n`)
+//! - Output format (`-s`, `-e`)
+//! - Date filtering (`--since`, `--until`)
+//! - Grouping logic (merging authors with same name but different emails when `-e` is absent)
+
 use clap::Parser;
 use git_internal::{
     hash::ObjectHash,
@@ -208,7 +217,7 @@ async fn create_test_commit_tree() -> String {
 
 #[tokio::test]
 #[serial]
-async fn test_execute_shortlog() {
+async fn test_shortlog_basic() {
     let temp_path = tempdir().unwrap();
     test::setup_with_new_libra_in(temp_path.path()).await;
     let _guard = ChangeDirGuard::new(temp_path.path());
@@ -218,7 +227,7 @@ async fn test_execute_shortlog() {
     let args = ShortlogArgs::try_parse_from(["libra"]).unwrap();
 
     let mut buf = Vec::new();
-    shortlog::execute_to(args, &mut buf).await;
+    shortlog::execute_to(args, &mut buf).await.unwrap();
     let output = String::from_utf8(buf).unwrap();
 
     // expected output
@@ -245,12 +254,20 @@ async fn test_execute_shortlog() {
     let out_lines: Vec<_> = output.lines().collect();
     let exp_lines: Vec<_> = expected.lines().collect();
     assert_eq!(out_lines, exp_lines);
+}
+
+#[tokio::test]
+#[serial]
+async fn test_shortlog_numbered() {
+    let temp_path = tempdir().unwrap();
+    test::setup_with_new_libra_in(temp_path.path()).await;
+    let _guard = ChangeDirGuard::new(temp_path.path());
+    let _ = create_test_commit_tree().await;
 
     // test shortlog command with -n option
     let args = ShortlogArgs::try_parse_from(["libra", "-n"]).unwrap();
-    // shortlog::execute_to(args, &mut std::io::stdout()).await;
     let mut buf = Vec::new();
-    shortlog::execute_to(args, &mut buf).await;
+    shortlog::execute_to(args, &mut buf).await.unwrap();
     let output = String::from_utf8(buf).unwrap();
 
     let expected = r#"   5  LEAVE
@@ -276,12 +293,20 @@ async fn test_execute_shortlog() {
     let out_lines: Vec<_> = output.lines().collect();
     let exp_lines: Vec<_> = expected.lines().collect();
     assert_eq!(out_lines, exp_lines);
+}
+
+#[tokio::test]
+#[serial]
+async fn test_shortlog_summary() {
+    let temp_path = tempdir().unwrap();
+    test::setup_with_new_libra_in(temp_path.path()).await;
+    let _guard = ChangeDirGuard::new(temp_path.path());
+    let _ = create_test_commit_tree().await;
 
     // test shortlog command with -s option
     let args = ShortlogArgs::try_parse_from(["libra", "-s"]).unwrap();
-    // shortlog::execute_to(args, &mut std::io::stdout()).await;
     let mut buf = Vec::new();
-    shortlog::execute_to(args, &mut buf).await;
+    shortlog::execute_to(args, &mut buf).await.unwrap();
     let output = String::from_utf8(buf).unwrap();
 
     let expected = r#"   1  GUXUE
@@ -295,12 +320,20 @@ async fn test_execute_shortlog() {
     let out_lines: Vec<_> = output.lines().collect();
     let exp_lines: Vec<_> = expected.lines().collect();
     assert_eq!(out_lines, exp_lines);
+}
+
+#[tokio::test]
+#[serial]
+async fn test_shortlog_email() {
+    let temp_path = tempdir().unwrap();
+    test::setup_with_new_libra_in(temp_path.path()).await;
+    let _guard = ChangeDirGuard::new(temp_path.path());
+    let _ = create_test_commit_tree().await;
 
     // test shortlog command with -e option
     let args = ShortlogArgs::try_parse_from(["libra", "-e"]).unwrap();
-    // shortlog::execute_to(args, &mut std::io::stdout()).await;
     let mut buf = Vec::new();
-    shortlog::execute_to(args, &mut buf).await;
+    shortlog::execute_to(args, &mut buf).await.unwrap();
     let output = String::from_utf8(buf).unwrap();
 
     let expected = r#"   1  GUXUE <guxue@oa.org>
@@ -326,12 +359,20 @@ async fn test_execute_shortlog() {
     let out_lines: Vec<_> = output.lines().collect();
     let exp_lines: Vec<_> = expected.lines().collect();
     assert_eq!(out_lines, exp_lines);
+}
+
+#[tokio::test]
+#[serial]
+async fn test_shortlog_combined_flags() {
+    let temp_path = tempdir().unwrap();
+    test::setup_with_new_libra_in(temp_path.path()).await;
+    let _guard = ChangeDirGuard::new(temp_path.path());
+    let _ = create_test_commit_tree().await;
 
     // test shortlog command with -n -s options
     let args = ShortlogArgs::try_parse_from(["libra", "-n", "-s"]).unwrap();
-    // shortlog::execute_to(args, &mut std::io::stdout()).await;
     let mut buf = Vec::new();
-    shortlog::execute_to(args, &mut buf).await;
+    shortlog::execute_to(args, &mut buf).await.unwrap();
     let output = String::from_utf8(buf).unwrap();
 
     let expected = r#"   5  LEAVE
@@ -348,9 +389,8 @@ async fn test_execute_shortlog() {
 
     // test shortlog command with -n -e options
     let args = ShortlogArgs::try_parse_from(["libra", "-n", "-e"]).unwrap();
-    // shortlog::execute_to(args, &mut std::io::stdout()).await;
     let mut buf = Vec::new();
-    shortlog::execute_to(args, &mut buf).await;
+    shortlog::execute_to(args, &mut buf).await.unwrap();
     let output = String::from_utf8(buf).unwrap();
 
     let expected = r#"   5  LEAVE <leave@oa.org>
@@ -379,9 +419,8 @@ async fn test_execute_shortlog() {
 
     // test shortlog command with -s -e options
     let args = ShortlogArgs::try_parse_from(["libra", "-s", "-e"]).unwrap();
-    // shortlog::execute_to(args, &mut std::io::stdout()).await;
     let mut buf = Vec::new();
-    shortlog::execute_to(args, &mut buf).await;
+    shortlog::execute_to(args, &mut buf).await.unwrap();
     let output = String::from_utf8(buf).unwrap();
 
     let expected = r#"   1  GUXUE <guxue@oa.org>
@@ -395,12 +434,20 @@ async fn test_execute_shortlog() {
     let out_lines: Vec<_> = output.lines().collect();
     let exp_lines: Vec<_> = expected.lines().collect();
     assert_eq!(out_lines, exp_lines);
+}
+
+#[tokio::test]
+#[serial]
+async fn test_shortlog_date_filter() {
+    let temp_path = tempdir().unwrap();
+    test::setup_with_new_libra_in(temp_path.path()).await;
+    let _guard = ChangeDirGuard::new(temp_path.path());
+    let _ = create_test_commit_tree().await;
 
     // test shortlog command with --since option
     let args = ShortlogArgs::try_parse_from(["libra", "--since", "2026-01-10"]).unwrap();
-    // shortlog::execute_to(args, &mut std::io::stdout()).await;
     let mut buf = Vec::new();
-    shortlog::execute_to(args, &mut buf).await;
+    shortlog::execute_to(args, &mut buf).await.unwrap();
     let output = String::from_utf8(buf).unwrap();
 
     let expected = r#"   2  LEAVE
@@ -419,9 +466,8 @@ async fn test_execute_shortlog() {
 
     // test shortlog command with --until option
     let args = ShortlogArgs::try_parse_from(["libra", "--until", "2026-01-13"]).unwrap();
-    // shortlog::execute_to(args, &mut std::io::stdout()).await;
     let mut buf = Vec::new();
-    shortlog::execute_to(args, &mut buf).await;
+    shortlog::execute_to(args, &mut buf).await.unwrap();
     let output = String::from_utf8(buf).unwrap();
 
     let expected = r#"   1  GUXUE
@@ -458,9 +504,8 @@ async fn test_execute_shortlog() {
         "2026-01-13",
     ])
     .unwrap();
-    // shortlog::execute_to(args, &mut std::io::stdout()).await;
     let mut buf = Vec::new();
-    shortlog::execute_to(args, &mut buf).await;
+    shortlog::execute_to(args, &mut buf).await.unwrap();
     let output = String::from_utf8(buf).unwrap();
 
     let expected = r#"   4  LEAVE <leave@oa.org>
@@ -518,9 +563,9 @@ async fn test_shortlog_committer_date_filter() {
     // Should exclude if using author date (Jan 1 < Jan 15)
     // Should include if using committer date (Feb 1 > Jan 15)
     let args = ShortlogArgs::try_parse_from(["libra", "--since", "2026-01-15"]).unwrap();
-    
+
     let mut buf = Vec::new();
-    shortlog::execute_to(args, &mut buf).await;
+    shortlog::execute_to(args, &mut buf).await.unwrap();
     let output = String::from_utf8(buf).unwrap();
 
     // Expect the commit to be present

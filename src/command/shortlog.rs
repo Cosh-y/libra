@@ -13,7 +13,7 @@
 //!     suppressing individual commit subjects.
 //!   - `email` (`-e` / `--email`): include the author email address in the
 //!     report header.
-//!   - `since` / `until`: restrict the set of commits by author timestamp,
+//!   - `since` / `until`: restrict the set of commits by committer timestamp,
 //!     using the repository-wide date parser in [`parse_date`].
 //!
 //! - **Execution entrypoints**:
@@ -31,13 +31,15 @@
 //!     engine.
 //!   - [`passes_filter`] applies `since`/`until` constraints to each
 //!     commit, converting user-supplied date strings via [`parse_date`] and
-//!     comparing them against the commit author timestamp.
+//!     comparing them against the commit committer timestamp (to match `git log`).
 //!
 //! - **Aggregation and formatting**:
 //!   - Commits are grouped by author identity in an in-memory
 //!     `HashMap<String, AuthorStats>`, where [`AuthorStats`] tracks the
 //!     author name, optional email address, total commit count, and a list
 //!     of commit subjects.
+//!   - If `-e` is provided, grouping is by `name <email>`. Otherwise, it is
+//!     by `name` only (merging multiple emails for the same author).
 //!   - After aggregation, the authors are converted to a vector, optionally
 //!     sorted by commit count (`numbered`) or left in deterministic order,
 //!     and finally rendered to the provided writer in either detailed or
@@ -100,19 +102,51 @@ impl AuthorStats {
     }
 }
 
-pub async fn execute_to(args: ShortlogArgs, writer: &mut impl Write) {
+pub async fn execute_to(args: ShortlogArgs, writer: &mut impl Write) -> std::io::Result<()> {
     if !crate::utils::util::check_repo_exist() {
-        return;
+        return Ok(());
     }
 
-    let commits = get_commits_for_shortlog(&args).await;
+    // Validate date arguments before processing
+    let since_ts = if let Some(ref since_str) = args.since {
+        match parse_date(since_str) {
+            Ok(ts) => Some(ts),
+            Err(_) => {
+                eprintln!("fatal: invalid date format: {}", since_str);
+                return Ok(());
+            }
+        }
+    } else {
+        None
+    };
+
+    let until_ts = if let Some(ref until_str) = args.until {
+        match parse_date(until_str) {
+            Ok(ts) => Some(ts),
+            Err(_) => {
+                eprintln!("fatal: invalid date format: {}", until_str);
+                return Ok(());
+            }
+        }
+    } else {
+        None
+    };
+
+    let commits = get_commits_for_shortlog(&args, since_ts, until_ts).await;
 
     let mut author_map: HashMap<String, AuthorStats> = HashMap::new();
 
     for commit in commits {
         let author_name = commit.author.name.clone();
         let author_email = commit.author.email.clone();
-        let key = format!("{} <{}>", author_name, author_email);
+
+        // If email is not requested, group by name only.
+        // If email is requested, group by name + email.
+        let key = if args.email {
+            format!("{} <{}>", author_name, author_email)
+        } else {
+            author_name.clone()
+        };
 
         let subject = commit
             .message
@@ -159,8 +193,7 @@ pub async fn execute_to(args: ShortlogArgs, writer: &mut impl Write) {
                 stats.name,
                 stats.email,
                 width = width
-            )
-            .unwrap();
+            )?;
         } else {
             writeln!(
                 writer,
@@ -168,22 +201,32 @@ pub async fn execute_to(args: ShortlogArgs, writer: &mut impl Write) {
                 stats.count,
                 stats.name,
                 width = width
-            )
-            .unwrap();
+            )?;
         }
         if !args.summary {
             for subject in &stats.subjects {
-                writeln!(writer, "      {}", subject).unwrap();
+                writeln!(writer, "      {}", subject)?;
             }
+        }
+    }
+
+    Ok(())
+}
+
+pub async fn execute(args: ShortlogArgs) {
+    if let Err(e) = execute_to(args, &mut std::io::stdout()).await {
+        // Ignore broken pipe errors which happen when piping to head/less
+        if e.kind() != std::io::ErrorKind::BrokenPipe {
+            eprintln!("error: {}", e);
         }
     }
 }
 
-pub async fn execute(args: ShortlogArgs) {
-    execute_to(args, &mut std::io::stdout()).await;
-}
-
-async fn get_commits_for_shortlog(args: &ShortlogArgs) -> Vec<Commit> {
+async fn get_commits_for_shortlog(
+    _args: &ShortlogArgs,
+    since_ts: Option<i64>,
+    until_ts: Option<i64>,
+) -> Vec<Commit> {
     use crate::command::log::get_reachable_commits;
 
     let head = Head::current().await;
@@ -206,7 +249,7 @@ async fn get_commits_for_shortlog(args: &ShortlogArgs) -> Vec<Commit> {
     let mut commits: Vec<Commit> = get_reachable_commits(commit_hash, None)
         .await
         .into_iter()
-        .filter(|c| passes_filter(c, args))
+        .filter(|c| passes_filter(c, since_ts, until_ts))
         .collect();
 
     commits.sort_by(|a, b| b.author.timestamp.cmp(&a.author.timestamp));
@@ -214,23 +257,19 @@ async fn get_commits_for_shortlog(args: &ShortlogArgs) -> Vec<Commit> {
     commits
 }
 
-fn passes_filter(commit: &Commit, args: &ShortlogArgs) -> bool {
-    if let Some(since_str) = &args.since
-        && let Ok(since_ts) = parse_date(since_str)
+fn passes_filter(commit: &Commit, since_ts: Option<i64>, until_ts: Option<i64>) -> bool {
+    let commit_ts = commit.committer.timestamp as i64;
+
+    if let Some(since) = since_ts
+        && commit_ts < since
     {
-        let commit_ts = commit.committer.timestamp as i64;
-        if commit_ts < since_ts {
-            return false;
-        }
+        return false;
     }
 
-    if let Some(until_str) = &args.until
-        && let Ok(until_ts) = parse_date(until_str)
+    if let Some(until) = until_ts
+        && commit_ts > until
     {
-        let commit_ts = commit.committer.timestamp as i64;
-        if commit_ts > until_ts {
-            return false;
-        }
+        return false;
     }
 
     true
