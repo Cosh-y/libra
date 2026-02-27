@@ -111,8 +111,8 @@ pub async fn execute_to(args: ShortlogArgs, writer: &mut impl Write) -> std::io:
     let since_ts = if let Some(ref since_str) = args.since {
         match parse_date(since_str) {
             Ok(ts) => Some(ts),
-            Err(_) => {
-                eprintln!("fatal: invalid date format: {}", since_str);
+            Err(e) => {
+                eprintln!("fatal: {}", e);
                 return Ok(());
             }
         }
@@ -123,8 +123,8 @@ pub async fn execute_to(args: ShortlogArgs, writer: &mut impl Write) -> std::io:
     let until_ts = if let Some(ref until_str) = args.until {
         match parse_date(until_str) {
             Ok(ts) => Some(ts),
-            Err(_) => {
-                eprintln!("fatal: invalid date format: {}", until_str);
+            Err(e) => {
+                eprintln!("fatal: {}", e);
                 return Ok(());
             }
         }
