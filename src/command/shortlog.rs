@@ -141,16 +141,28 @@ pub async fn execute_to(args: ShortlogArgs, writer: &mut impl Write) {
         authors.sort_by(|a, b| a.1.name.to_lowercase().cmp(&b.1.name.to_lowercase()));
     }
 
+    // Determine the width needed for the commit count column.
+    // Use at least 4 characters to preserve the existing layout for small repositories.
+    let max_count = authors
+        .iter()
+        .map(|(_, stats)| stats.count)
+        .max()
+        .unwrap_or(0);
+    let width = std::cmp::max(4, max_count.to_string().len());
+
     for (_key, stats) in authors {
         if args.email {
             writeln!(
                 writer,
-                "{:>4}  {} <{}>",
-                stats.count, stats.name, stats.email
+                "{:>width$}  {} <{}>",
+                stats.count,
+                stats.name,
+                stats.email,
+                width = width
             )
             .unwrap();
         } else {
-            writeln!(writer, "{:>4}  {}", stats.count, stats.name).unwrap();
+            writeln!(writer, "{:>width$}  {}", stats.count, stats.name, width = width).unwrap();
         }
         if !args.summary {
             for subject in &stats.subjects {
