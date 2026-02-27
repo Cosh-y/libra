@@ -1,4 +1,3 @@
-use core::panic;
 
 use clap::Parser;
 use git_internal::{
