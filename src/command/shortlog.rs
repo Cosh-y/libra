@@ -114,7 +114,13 @@ pub async fn execute_to(args: ShortlogArgs, writer: &mut impl Write) {
         let author_email = commit.author.email.clone();
         let key = format!("{} <{}>", author_name, author_email);
 
-        let subject = commit.message.lines().nth(1).unwrap_or("").to_string();
+        let subject = commit
+            .message
+            .trim()
+            .lines()
+            .next()
+            .unwrap_or("")
+            .to_string();
 
         author_map
             .entry(key)
