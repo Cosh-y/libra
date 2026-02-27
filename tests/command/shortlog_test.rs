@@ -203,7 +203,6 @@ async fn test_execute_shortlog() {
 
     // test shortlog command without options
     let args = ShortlogArgs::try_parse_from(["libra"]).unwrap();
-    // shortlog::execute_to(args, &mut std::io::stdout()).await;
 
     let mut buf = Vec::new();
     shortlog::execute_to(args, &mut buf).await;
